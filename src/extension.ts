@@ -18,7 +18,8 @@ import * as child_process from 'child_process';
 import * as fs from 'fs';
 
 import { workspace, ExtensionContext, window, commands, OutputChannel } from 'vscode';
-import { LanguageClient, LanguageClientOptions, ServerOptions, NotificationType, RevealOutputChannelOn } from 'vscode-languageclient';
+import { LanguageClient, LanguageClientOptions, ErrorAction, CloseAction, ServerOptions, NotificationType, RevealOutputChannelOn, ErrorHandler } from 'vscode-languageclient';
+import { Message } from 'vscode-jsonrpc';
 import * as is from 'vscode-languageclient/lib/utils/is';
 
 const CONFIGURATION = RLSConfiguration.loadFromWorkspace();
@@ -102,6 +103,19 @@ function makeRlsProcess(lcOutputChannel: OutputChannel | null): Promise<child_pr
     });
 }
 
+class RlsErrorHandler implements ErrorHandler {
+  constructor() { }
+  error(_error: Error, message: Message, _count: number): ErrorAction {
+      window.showWarningMessage("Error connecting to RLS: " + message);
+      return ErrorAction.Shutdown;
+  }
+
+  closed(): CloseAction {
+    window.showWarningMessage("Connection to RLS closed")
+    return CloseAction.Restart;
+  }
+}
+
 export function activate(context: ExtensionContext) {
     window.setStatusBarMessage("RLS analysis: starting up");
 
@@ -118,6 +132,7 @@ export function activate(context: ExtensionContext) {
         // Controls when to focus the channel rather than when to reveal it in the drop-down list
         revealOutputChannelOn: CONFIGURATION.revealOutputChannelOn,
         initializationOptions: { omitInitBuild: true },
+        errorHandler: new RlsErrorHandler(),
     };
 
     // Create the language client and start the client.
